@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tinsel Trees - Interactive 3D Procedural Christmas Tree Generator</title>
+    
+    <meta name="description" content="Design your own retro-futuristic Tinsel Tree in 3D. A generative art arcade experience featuring physics-based tinsel, customizable lighting, and procedural ornaments.">
+    <meta name="keywords" content="tinsel tree, procedural art, three.js, webgl, christmas tree, generative art, 3D simulation, aluminum tree, interactive visualization, arcade, retro aesthetic">
+    <meta name="author" content="Chris Pirillo">
+    <link rel="canonical" href="https://pirillo.com/arcade/tinsel-trees.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pirillo.com/arcade/tinsel-trees.html">
+    <meta property="og:title" content="Tinsel Trees by Chris Pirillo">
+    <meta property="og:description" content="Design your own retro-futuristic Tinsel Tree in 3D. A generative art arcade experience featuring physics-based tinsel, customizable lighting, and procedural ornaments.">
+    <meta property="og:image" content="https://pirillo.com/arcade/images/tinsel-trees.png">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://pirillo.com/arcade/tinsel-trees.html">
+    <meta name="twitter:title" content="Tinsel Trees by Chris Pirillo">
+    <meta name="twitter:description" content="Design your own retro-futuristic Tinsel Tree in 3D. A generative art arcade experience featuring physics-based tinsel, customizable lighting, and procedural ornaments.">
+    <meta name="twitter:image" content="https://pirillo.com/arcade/images/tinsel-trees.png">
+    <meta name="twitter:creator" content="@ChrisPirillo">
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1CQ4D3VQ3L"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-1CQ4D3VQ3L');
+    </script>
+
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" as="script">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Tinsel Trees",
+      "url": "https://pirillo.com/arcade/tinsel-trees.html",
+      "description": "A generative 3D web application for creating and customizing procedural aluminum tinsel trees.",
+      "genre": "Generative Art",
+      "author": {
+        "@type": "Person",
+        "name": "Chris Pirillo",
+        "url": "https://pirillo.com"
+      },
+      "image": "https://pirillo.com/arcade/images/tinsel-trees.png",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Any"
+    }
+    </script>
+
+    <style>
+        :root {
+            --panel-bg: rgba(20, 20, 25, 0.95);
+            --text-main: #eeeeee;
+            --text-dim: #aaaaaa;
+            --accent: #ff0055;
+            --accent-hover: #ff2277;
+            --input-bg: rgba(255, 255, 255, 0.1);
+            --border: rgba(255,255,255,0.1);
+        }
+
+        body { margin: 0; overflow: hidden; background-color: #050505; color: var(--text-main); font-family: 'Inter', sans-serif; }
+        /* Changed from generic block to specific layout for SEO/structure, CSS selector remains ID based */
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        /* The Curtain for transitions */
+        #curtain {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #000;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 9999;
+            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #menu-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--panel-bg);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            font-size: 1.5rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        #menu-btn:hover { background: rgba(50,50,60,1); transform: scale(1.05); }
+
+        #settings-panel {
+            position: absolute;
+            top: 0;
+            right: -360px;
+            width: 340px;
+            height: 100vh;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            padding: 80px 20px 40px 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            transition: right 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            z-index: 15;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #settings-panel.open { right: 0; }
+
+        .control-group {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            transition: opacity 0.3s;
+        }
+
+        .control-group.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            filter: grayscale(1.0);
+        }
+        
+        .group-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent);
+            margin-bottom: 12px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .control-row:last-child { margin-bottom: 0; }
+        
+        label { font-size: 0.85rem; color: var(--text-main); }
+        
+        input[type="range"] {
+            width: 120px;
+            accent-color: var(--accent);
+            height: 4px;
+            border-radius: 2px;
+        }
+        
+        input[type="color"] {
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            overflow: hidden;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        input[type="checkbox"] {
+            accent-color: var(--accent);
+            width: 16px;
+            height: 16px;
+        }
+
+        select {
+            background: var(--input-bg);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            outline: none;
+            width: 130px;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            border: none;
+            color: white;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-top: 5px;
+            transition: background 0.2s;
+        }
+        .action-btn:hover { background: var(--accent-hover); }
+        
+        .action-btn.random-btn {
+            background: linear-gradient(135deg, #ff0055, #ff9900);
+            box-shadow: 0 4px 15px rgba(255, 0, 85, 0.4);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .action-btn.random-btn:hover {
+            filter: brightness(1.2);
+            transform: translateY(-1px);
+        }
+
+        #settings-panel::-webkit-scrollbar { width: 6px; }
+        #settings-panel::-webkit-scrollbar-track { background: transparent; }
+        #settings-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        
+        .hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.4);
+            font-size: 0.8rem;
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+<div id="curtain"></div>
+<button id="menu-btn" aria-label="Open Settings Menu">☰</button>
+
+<aside id="settings-panel">
+    <button id="btn-random-all" class="action-btn random-btn">🎲 Randomize All</button>
+
+    <div class="control-group">
+        <div class="group-title">Lighting Mode</div>
+        <div class="control-row">
+            <label><strong>Self Illuminated</strong></label>
+            <input type="checkbox" id="inp-self-lit">
+        </div>
+        <div class="control-row">
+            <label>Background</label>
+            <input type="color" id="inp-bg-color" value="#050505">
+        </div>
+    </div>
+
+    <div class="control-group">
+        <div class="group-title">Organic Tree Structure</div>
+        <div class="control-row">
+            <label>Form</label>
+            <select id="inp-shape">
+                <option value="conical">Spruce (Sharp)</option>
+                <option value="linear">Classic Cone</option>
+                <option value="parabolic">Fat Bottom</option>
+                <option value="spherical">Round Bush</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label>Height</label>
+            <input type="range" id="inp-height" min="6" max="22" step="0.5" value="14">
+        </div>
+        <div class="control-row">
+            <label>Width Base</label>
+            <input type="range" id="inp-radius" min="2" max="10" step="0.5" value="5.5">
+        </div>
+        <div class="control-row">
+            <label>Total Branches</label>
+            <input type="range" id="inp-branch-total" min="50" max="300" step="10" value="140">
+        </div>
+        <div class="control-row">
+            <label>Branch Arch</label>
+            <input type="range" id="inp-branch-arch" min="0.0" max="1.0" step="0.1" value="0.4">
+        </div>
+        <div class="control-row">
+            <label>Jiggle (Chaos)</label>
+            <input type="range" id="inp-branch-chaos" min="0.0" max="1.5" step="0.1" value="0.7">
+        </div>
+        <div class="control-row">
+            <label>Visible Branches</label>
+            <input type="checkbox" id="inp-show-branches" checked>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <div class="group-title">Foil Tinsel Volume</div>
+        <div class="control-row">
+            <label>Density</label>
+            <input type="range" id="inp-tinsel-count" min="10000" max="100000" step="2000" value="70000">
+        </div>
+        <div class="control-row">
+            <label>Base Width</label>
+            <input type="range" id="inp-tinsel-width" min="0.02" max="0.15" step="0.01" value="0.08">
+        </div>
+        <div class="control-row">
+            <label>Base Length</label>
+            <input type="range" id="inp-tinsel-len" min="0.2" max="1.5" step="0.1" value="0.7">
+        </div>
+        <div class="control-row">
+            <label>Fluff Radius</label>
+            <input type="range" id="inp-tinsel-fluff" min="0.1" max="1.0" step="0.1" value="0.5">
+        </div>
+        <div class="control-row">
+            <label>Metalness</label>
+            <input type="range" id="inp-tinsel-metal" min="0" max="1.0" step="0.05" value="1.0">
+        </div>
+        <div class="control-row">
+            <label>Roughness</label>
+            <input type="range" id="inp-tinsel-rough" min="0.0" max="1.0" step="0.05" value="0.3">
+        </div>
+        <div class="control-row">
+            <label>Color</label>
+            <input type="color" id="inp-tinsel-color" value="#dddddd">
+        </div>
+    </div>
+
+    <div class="control-group">
+        <div class="group-title">Ornaments</div>
+        <div class="control-row">
+            <label>Type</label>
+            <select id="inp-ornament-type">
+                <option value="flat">Flat Sequin</option>
+                <option value="sphere">Glass Sphere</option>
+                <option value="diamond">Diamond (Octa)</option>
+                <option value="star">Star</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label>Count</label>
+            <input type="range" id="inp-sequin-count" min="0" max="500" step="10" value="180">
+        </div>
+        <div class="control-row">
+            <label>Base Size</label>
+            <input type="range" id="inp-sequin-size" min="0.1" max="1.0" step="0.05" value="0.35">
+        </div>
+        <div class="control-row">
+            <label>Color Palette</label>
+            <select id="inp-palette">
+                <option value="custom_rand">Random Generated</option>
+                <option value="mixed">Mixed Brights</option>
+                <option value="gold_red">Classic Gold & Red</option>
+                <option value="silver_blue">Frozen Silver & Blue</option>
+                <option value="neon">Cyber Neon</option>
+                <option value="pastel">Soft Pastels</option>
+                <option value="dark">Gothic Dark</option>
+                <option value="monochrome">Monochrome</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="group-disco" class="control-group">
+        <div class="group-title">Dynamic Lights</div>
+        <div class="control-row">
+            <label>Enabled</label>
+            <input type="checkbox" id="inp-disco" checked>
+        </div>
+        <div class="control-row">
+            <label>Intensity</label>
+            <input type="range" id="inp-disco-int" min="0" max="8.0" step="0.1" value="2.5">
+        </div>
+        <div class="control-row">
+            <label>Speed</label>
+            <input type="range" id="inp-disco-speed" min="0" max="3.0" step="0.1" value="1.0">
+        </div>
+        <div class="control-row">
+            <label>Palette</label>
+            <select id="inp-light-palette">
+                <option value="custom_rand">Random Generated</option>
+                <option value="party">Party (Multi)</option>
+                <option value="warm">Warm (Red/Orange)</option>
+                <option value="cool">Cool (Blue/Cyan)</option>
+                <option value="xmas">Xmas (Red/Green)</option>
+                <option value="cyber">Cyber (Pink/Cyan)</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="group-env" class="control-group">
+        <div class="group-title">Environment</div>
+        <div class="control-row">
+            <label>Tree Rotation</label>
+            <input type="range" id="inp-speed" min="0" max="1.0" step="0.05" value="0.1">
+        </div>
+        <div class="control-row">
+            <label>Ambient (Floor)</label>
+            <input type="range" id="inp-ambient" min="0.0" max="1.0" step="0.05" value="0.3">
+        </div>
+    </div>
+
+    <button id="btn-regenerate" class="action-btn">Generate With Current</button>
+</aside>
+
+<main id="canvas-container"></main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+    // --- Application State ---
+    const DEFAULTS = {
+        shape: 'conical',
+        treeHeight: 14,
+        baseRadius: 5.5,
+        totalBranches: 140, 
+        branchChaos: 0.7, 
+        branchArch: 0.4, 
+        trunkScale: 0.6,
+        showBranches: true,
+        
+        // Tinsel
+        tinselCount: 70000, 
+        tinselLength: 0.7,
+        tinselWidth: 0.08,
+        tinselFluff: 0.5, 
+        tinselMetalness: 1.0, 
+        tinselRoughness: 0.3, 
+        tinselColor: 0xdddddd, 
+        
+        // Ornaments
+        ornamentType: 'flat', 
+        sequinCount: 180,
+        sequinSize: 0.35,
+        palette: 'custom_rand',
+        ornamentMetalness: 0.9,
+        ornamentRoughness: 0.1,
+        
+        // Lights
+        discoLights: true,
+        discoIntensity: 2.5, 
+        discoSpeed: 1.0,
+        lightPalette: 'custom_rand',
+
+        // Env
+        selfIlluminated: false,
+        rotationSpeed: 0.1, 
+        ambientIntensity: 0.3, 
+        lightIntensity: 1.5,
+        hemiIntensity: 0.2,
+        lightAngle: 0.6,
+        lightSoftness: 0.5,
+        bgColor: 0x050505
+    };
+
+    let STATE = { ...DEFAULTS };
+
+    const PALETTES = {
+        custom_rand: [0xff0000, 0x00ff00, 0x0000ff], // Will be overwritten
+        mixed: [0xff0000, 0x00ff00, 0x0000ff, 0xffd700, 0xff00ff, 0xff8c00, 0x00ffff],
+        gold_red: [0xff0000, 0xffd700, 0xaa0000, 0xffaa00],
+        silver_blue: [0xdddddd, 0x0055ff, 0x88ccff, 0xffffff],
+        neon: [0xff00ff, 0x00ff00, 0x00ffff, 0xffff00],
+        pastel: [0xffb3ba, 0xffdfba, 0xffffba, 0xbaffc9, 0xbae1ff],
+        dark: [0x330000, 0x110033, 0x002200, 0x333333, 0x550000],
+        monochrome: [0xffffff, 0xaaaaaa, 0x555555, 0x222222]
+    };
+
+    const LIGHT_PALETTES = {
+        custom_rand: [0xff0000, 0x00ff00], // Will be overwritten
+        party: [0xff0055, 0x0055ff, 0xffff55, 0x00ffaa, 0xffaa00, 0xaa00ff, 0xffffff],
+        warm: [0xff0000, 0xff5500, 0xffaa00, 0xffff00, 0xff2200],
+        cool: [0x0000ff, 0x0055ff, 0x00aaff, 0x00ffff, 0x5500ff],
+        xmas: [0xff0000, 0x00ff00, 0xffffff, 0xffd700],
+        cyber: [0xff00ff, 0x00ffff, 0xffff00, 0x5500ff]
+    };
+
+    // --- Scene Setup ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(STATE.bgColor);
+    scene.fog = new THREE.FogExp2(STATE.bgColor, 0.02);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 6, 16);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0; 
+    
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0, 5, 0);
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; 
+
+    // --- Lighting ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, STATE.ambientIntensity);
+    scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x222222, STATE.hemiIntensity);
+    hemiLight.position.set(0, 20, 0);
+    scene.add(hemiLight);
+
+    const spotLight = new THREE.SpotLight(0xffffff, STATE.lightIntensity);
+    spotLight.position.set(10, 25, 10);
+    spotLight.angle = STATE.lightAngle;
+    spotLight.penumbra = STATE.lightSoftness;
+    spotLight.castShadow = true;
+    spotLight.shadow.mapSize.width = 2048;
+    spotLight.shadow.mapSize.height = 2048;
+    spotLight.shadow.bias = -0.0001;
+    scene.add(spotLight);
+
+    const camLight = new THREE.PointLight(0xffffff, 0.2, 50);
+    camera.add(camLight);
+    scene.add(camera);
+
+    // -- Real lights that orbit invisibly --
+    const discoRealLightsGroup = new THREE.Group();
+    scene.add(discoRealLightsGroup);
+    const realLights = [];
+    const NUM_REAL_LIGHTS = 6;
+    
+    for(let i=0; i<NUM_REAL_LIGHTS; i++) {
+        const pl = new THREE.PointLight(0xffffff, 1, 40);
+        pl.castShadow = true;
+        pl.shadow.radius = 4;
+        pl.decay = 2;
+        discoRealLightsGroup.add(pl);
+        realLights.push(pl);
+    }
+
+    // --- Materials ---
+    const tinselMat = new THREE.MeshStandardMaterial({
+        color: STATE.tinselColor, 
+        metalness: STATE.tinselMetalness,
+        roughness: STATE.tinselRoughness,
+        side: THREE.DoubleSide, 
+        flatShading: true,
+        envMapIntensity: 0.8,
+    });
+    
+    const branchMat = new THREE.MeshStandardMaterial({
+        color: 0x4a3c31, 
+        roughness: 1.0,
+        metalness: 0.0,
+    });
+    
+    const ornamentMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff, 
+        metalness: STATE.ornamentMetalness,
+        roughness: STATE.ornamentRoughness,
+        envMapIntensity: 0.8, 
+    });
+
+    const floorGeo = new THREE.PlaneGeometry(200, 200);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8, metalness: 0.2 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    let treeGroup = new THREE.Group();
+    scene.add(treeGroup);
+
+    // --- Helper Functions ---
+    function getTreeProfileRadius(hRatio) {
+        const base = STATE.baseRadius;
+        switch(STATE.shape) {
+            case 'linear': return base * (1 - hRatio);
+            case 'parabolic': return base * Math.sqrt(1 - hRatio);
+            case 'spherical': if(hRatio > 0.8) return base * Math.sin((hRatio-0.2)/0.8 * Math.PI) * 0.5; return base * Math.sin(hRatio * Math.PI);
+            case 'conical': default: 
+                // Sharper "Spruce" power curve
+                return base * Math.pow(1 - hRatio, 1.2); 
+        }
+    }
+
+    function createTwistedPlaneGeo() {
+        const geo = new THREE.BufferGeometry();
+        // Create a quad that is slightly twisted
+        const w = 0.5; const h = 1.0;
+        const vertices = new Float32Array([
+            -w, 0, 0,
+             w, 0, 0,
+            -w, h, 0.2, // Twist z
+             w, h, -0.2
+        ]);
+        const indices = [0, 2, 1, 2, 3, 1];
+        geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        geo.setIndex(indices);
+        geo.computeVertexNormals();
+        return geo;
+    }
+
+    // --- Generation ---
+    function generateTree() {
+        while(treeGroup.children.length > 0){ 
+            const obj = treeGroup.children[0];
+            if(obj.geometry) obj.geometry.dispose();
+            treeGroup.remove(obj);
+        }
+
+        const dummy = new THREE.Object3D();
+        const _pos = new THREE.Vector3();
+        const _tempVec = new THREE.Vector3();
+
+        const branches = []; 
+        const trunkHeight = STATE.treeHeight;
+        
+        // --- 1. Organic Curve Branch Generation ---
+        const numBranches = STATE.totalBranches;
+        // Use a golden angle spiral for natural distribution
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5)); 
+
+        const branchTubeGeo = new THREE.CylinderGeometry(0.02, 0.1, 1, 6, 4, false); // Generic tube to scale
+
+        // Create a large instanced mesh for branches
+        const branchMesh = new THREE.InstancedMesh(branchTubeGeo, branchMat, numBranches);
+        
+        for (let i = 0; i < numBranches; i++) {
+            const t = i / numBranches; // 0 to 1 (bottom to top)
+            
+            // Height with some randomness (Raised base)
+            const y = (t * trunkHeight) + 1.5 + (Math.random()-0.5)*0.5;
+            
+            // Radius at this height
+            const rProfile = getTreeProfileRadius(t);
+            // Randomize length
+            // Tighter variance at the bottom to form a neat skirt
+            const isBottom = t < 0.15;
+            // Less extreme variance to prevent "holes"
+            const variance = isBottom ? 0.05 : (0.2 * (1.0 - t));
+            const lengthVar = 0.9 + Math.random() * variance; 
+            const r = rProfile * lengthVar;
+
+            // Spiral Angle
+            let angle = i * goldenAngle;
+            angle += (Math.random() - 0.5) * STATE.branchChaos;
+
+            // Start point (Trunk)
+            const start = new THREE.Vector3(0, y, 0);
+            
+            // End point (Tip)
+            // Calculate declination
+            const droop = (1.0 - t) * 0.5 + (Math.random() - 0.5) * 0.2; 
+            
+            const end = new THREE.Vector3(
+                Math.cos(angle) * r,
+                y - (r * droop * STATE.branchArch), 
+                Math.sin(angle) * r
+            );
+            
+            // Floor Clamp: Ensure branch tips don't go below y=0.5
+            if (end.y < 0.5) end.y = 0.5 + Math.random() * 0.2;
+
+            // Calculate Curve Midpoint
+            const mid = new THREE.Vector3().lerpVectors(start, end, 0.5);
+            mid.y += r * 0.2 * (1.0 - STATE.branchArch); 
+
+            const curve = new THREE.CatmullRomCurve3([start, mid, end]);
+            const length = curve.getLength();
+
+            branches.push({ start, mid, end, curve, length, r, t }); 
+
+            if (STATE.showBranches) {
+                const pos = new THREE.Vector3().lerpVectors(start, end, 0.5);
+                dummy.position.copy(pos);
+                dummy.lookAt(end);
+                dummy.rotateX(Math.PI / 2);
+                
+                const thickness = 1.0 * (1.2 - t); 
+                dummy.scale.set(thickness, length, thickness);
+                
+                dummy.updateMatrix();
+                branchMesh.setMatrixAt(i, dummy.matrix);
+            }
+        }
+
+        // Tree Stand & Trunk
+        const standBaseGeo = new THREE.CylinderGeometry(2, 2.5, 0.5, 8);
+        const standMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 });
+        const standBase = new THREE.Mesh(standBaseGeo, standMat);
+        standBase.position.y = 0.25;
+        treeGroup.add(standBase);
+        
+        const standPoleGeo = new THREE.CylinderGeometry(0.3, 0.3, 1.5, 8);
+        const standPole = new THREE.Mesh(standPoleGeo, standMat);
+        standPole.position.y = 1.0;
+        treeGroup.add(standPole);
+
+        const trunkGeo = new THREE.CylinderGeometry(0.2 * STATE.trunkScale, 0.6 * STATE.trunkScale, trunkHeight, 8);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x332211 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = trunkHeight / 2 + 1.0; 
+        treeGroup.add(trunk);
+
+        if (STATE.showBranches) {
+            branchMesh.instanceMatrix.needsUpdate = true;
+            treeGroup.add(branchMesh);
+        }
+
+        // 2. Ornaments
+        let ornGeo;
+        if(STATE.ornamentType === 'sphere') ornGeo = new THREE.SphereGeometry(1, 16, 16);
+        else if(STATE.ornamentType === 'diamond') ornGeo = new THREE.OctahedronGeometry(1, 0);
+        else if(STATE.ornamentType === 'star') ornGeo = new THREE.IcosahedronGeometry(1, 0); 
+        else ornGeo = new THREE.CylinderGeometry(1, 1, 0.05, 32); 
+        const ornMesh = new THREE.InstancedMesh(ornGeo, ornamentMat, STATE.sequinCount);
+        ornMesh.frustumCulled = false; ornMesh.castShadow = true;
+        const currentPalette = PALETTES[STATE.palette] || PALETTES.mixed;
+        
+        const ornamentColliders = []; 
+
+        // Split ornament generation into Inner (0.3-0.6) and Outer Tip (0.9-1.0)
+        let ornIndex = 0;
+        let branchesWithOrnaments = [...branches].sort(() => Math.random() - 0.5); 
+        
+        // Loop through ornaments, distribute them
+        for (let i = 0; i < STATE.sequinCount; i++) {
+            if (branches.length === 0) break;
+            
+            const branch = branchesWithOrnaments[i % branchesWithOrnaments.length];
+            
+            // Toggle between inner and outer tip
+            const isOuter = i % 2 === 0;
+            // Outer goes right to the tip
+            const tBase = isOuter ? 0.95 : 0.45; 
+            const tVariance = isOuter ? 0.05 : 0.15;
+            
+            const t = tBase + (Math.random() - 0.5) * tVariance;
+            const safeT = Math.max(0, Math.min(1, t));
+            
+            const pt = branch.curve.getPoint(safeT);
+            
+            const hangDrop = 0.4 + Math.random() * 0.2;
+            _pos.copy(pt);
+            // Hang significantly below the branch line
+            _pos.y -= hangDrop; 
+
+            if (_pos.y < 0.5) continue;
+
+            const size = STATE.sequinSize * (0.8 + Math.random() * 0.4);
+            
+            let safe = true;
+            for(const col of ornamentColliders) {
+                if (_pos.distanceTo(col.pos) < (size + col.radius + 0.1)) {
+                    safe = false; break;
+                }
+            }
+            if(!safe) continue;
+
+            dummy.position.copy(_pos);
+            dummy.scale.setScalar(size);
+            
+            // VERTICAL HANG ORIENTATION
+            // 1. Reset
+            dummy.rotation.set(0,0,0);
+            // 2. Cylinder faces Y. Rotate X 90 to make it like a wheel.
+            dummy.rotateX(Math.PI / 2);
+            // 3. Spin around vertical axis (Y in world, but local axis changes after rotation?)
+            // Easier: rotate around World Y
+            const yRot = Math.random() * Math.PI * 2;
+            dummy.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), yRot);
+            // 4. Slight wobble
+            dummy.rotateZ((Math.random() - 0.5) * 0.5);
+
+            dummy.updateMatrix();
+            ornMesh.setMatrixAt(ornIndex++, dummy.matrix);
+            
+            const colHex = currentPalette[Math.floor(Math.random() * currentPalette.length)];
+            ornMesh.setColorAt(i, new THREE.Color(colHex));
+            
+            ornamentColliders.push({ pos: _pos.clone(), radius: size });
+        }
+        ornMesh.count = ornIndex;
+        ornMesh.instanceMatrix.needsUpdate = true; ornMesh.instanceColor.needsUpdate = true; treeGroup.add(ornMesh);
+
+        // 3. TINSEL - VOLUME FILL AROUND CURVE
+        const tinselGeo = createTwistedPlaneGeo(); 
+        const tinselMesh = new THREE.InstancedMesh(tinselGeo, tinselMat, STATE.tinselCount);
+        tinselMesh.frustumCulled = false; 
+        tinselMesh.castShadow = true; 
+        tinselMesh.receiveShadow = true;
+
+        const totalBranchLength = branches.reduce((acc, b) => acc + b.length, 0);
+        const density = STATE.tinselCount / totalBranchLength;
+
+        let instanceIdx = 0;
+        const tColors = new Float32Array(STATE.tinselCount * 3);
+        const baseTinCol = new THREE.Color(STATE.tinselColor);
+
+        branches.forEach(branch => {
+            const bLen = branch.length;
+            const strands = Math.floor(bLen * density);
+            
+            for(let i=0; i<strands; i++) {
+                if(instanceIdx >= STATE.tinselCount) break;
+
+                // Non-linear distribution: Cluster more at the tips
+                let tCurve = Math.pow(Math.random(), 0.7); 
+                
+                // Get point on curve
+                const pointOnCurve = branch.curve.getPoint(tCurve);
+                
+                // Radius expands towards tip for "fluffy end" look
+                const fluffRadius = STATE.tinselFluff * (0.3 + tCurve * 0.7); 
+                
+                // --- FIXED: SPHERICAL DISTRIBUTION ---
+                // Old box method: (Math.random() - 0.5) created cubic artifacts
+                // New method: Random vector normalized
+                
+                _tempVec.set(
+                    Math.random() - 0.5,
+                    Math.random() - 0.5,
+                    Math.random() - 0.5
+                );
+                
+                if (_tempVec.lengthSq() < 0.00001) _tempVec.set(1,0,0); // Safe fallback
+                
+                _tempVec.normalize();
+                
+                // Random distance from center (pow for gathering towards center vs edge)
+                const dist = Math.random() * fluffRadius;
+                _tempVec.multiplyScalar(dist);
+
+                _pos.copy(pointOnCurve).add(_tempVec);
+                
+                // Floor Clamp Check
+                if (_pos.y < 0.2) continue; 
+
+                // Collision Check - Aggressive Buffer
+                let isSkewering = false;
+                for(const col of ornamentColliders) {
+                    // Check radius + extra clearance
+                    if (_pos.distanceTo(col.pos) < col.radius + 0.3) {
+                        isSkewering = true; break;
+                    }
+                }
+                if(isSkewering) continue;
+
+                // CHAOTIC ORIENTATION
+                dummy.position.copy(_pos);
+                dummy.rotation.set(
+                    Math.random() * Math.PI * 2,
+                    Math.random() * Math.PI * 2,
+                    Math.random() * Math.PI * 2
+                );
+                
+                // VARIED SCALE (Organic Look)
+                // Independent width/length multipliers
+                const wMult = 0.5 + Math.random(); // 0.5x to 1.5x width
+                const lMult = 0.5 + Math.random(); // 0.5x to 1.5x length
+                
+                dummy.scale.set(
+                    STATE.tinselWidth * wMult, 
+                    STATE.tinselLength * lMult, 
+                    1.0
+                ); 
+
+                dummy.updateMatrix();
+                tinselMesh.setMatrixAt(instanceIdx, dummy.matrix);
+
+                const hsl = {}; baseTinCol.getHSL(hsl);
+                const tinCol = new THREE.Color().setHSL(
+                    hsl.h, 
+                    hsl.s, 
+                    hsl.l + (Math.random()-0.5)*0.15
+                );
+                tinCol.toArray(tColors, instanceIdx*3);
+
+                instanceIdx++;
+            }
+        });
+        
+        tinselMesh.count = instanceIdx;
+        tinselMesh.geometry.setAttribute('color', new THREE.InstancedBufferAttribute(tColors, 3));
+        tinselMat.vertexColors = true; 
+        
+        tinselMesh.instanceMatrix.needsUpdate = true;
+        treeGroup.add(tinselMesh);
+    }
+
+    function updateVisuals() {
+        renderer.toneMappingExposure = 1.0;
+
+        const discoDiv = document.getElementById('group-disco');
+        const envDiv = document.getElementById('group-env');
+
+        if (STATE.selfIlluminated) {
+            spotLight.intensity = 0;
+            hemiLight.intensity = 0;
+            camLight.intensity = 0;
+            discoRealLightsGroup.visible = false;
+            ambientLight.intensity = 0.05; 
+            
+            tinselMat.color.setHex(0xffffff); 
+            tinselMat.emissive.setHex(STATE.tinselColor);
+            tinselMat.emissiveIntensity = 0.5;
+            tinselMat.metalness = 0.1;
+            tinselMat.roughness = 0.9;
+            tinselMat.flatShading = false;
+            
+            ornamentMat.emissive.setHex(0x555555); 
+            ornamentMat.emissiveIntensity = 0.4;
+            ornamentMat.metalness = 0.1;
+            
+            scene.background.setHex(0x050505);
+            discoDiv.classList.add('disabled');
+            envDiv.classList.add('disabled');
+            
+        } else {
+            // Normal Lighting Mode
+            tinselMat.color.setHex(STATE.tinselColor); 
+            tinselMat.emissive.setHex(0x000000);
+            tinselMat.emissiveIntensity = 0;
+            tinselMat.metalness = STATE.tinselMetalness; 
+            tinselMat.roughness = STATE.tinselRoughness;
+            tinselMat.flatShading = true;
+
+            ornamentMat.emissive.setHex(0x000000);
+            ornamentMat.emissiveIntensity = 0;
+            ornamentMat.metalness = STATE.ornamentMetalness;
+            ornamentMat.roughness = STATE.ornamentRoughness;
+            
+            spotLight.intensity = STATE.lightIntensity;
+            ambientLight.intensity = STATE.ambientIntensity;
+            hemiLight.intensity = STATE.hemiIntensity; 
+            camLight.intensity = 0.4; 
+            
+            discoRealLightsGroup.visible = STATE.discoLights;
+            
+            scene.background.setHex(STATE.bgColor);
+            scene.fog.color.setHex(STATE.bgColor);
+            discoDiv.classList.remove('disabled');
+            envDiv.classList.remove('disabled');
+        }
+        
+        tinselMat.needsUpdate = true;
+        ornamentMat.needsUpdate = true;
+
+        const palette = LIGHT_PALETTES[STATE.lightPalette] || LIGHT_PALETTES.party;
+        
+        realLights.forEach((pl, i) => {
+            pl.intensity = STATE.discoIntensity;
+            pl.distance = 60;
+            const baseHex = palette[i % palette.length];
+            pl.color.setHex(baseHex);
+        });
+    }
+
+    const menuBtn = document.getElementById('menu-btn');
+    const panel = document.getElementById('settings-panel');
+    let isMenuOpen = false;
+    menuBtn.addEventListener('click', () => { isMenuOpen = !isMenuOpen; panel.classList.toggle('open', isMenuOpen); menuBtn.innerHTML = isMenuOpen ? '×' : '☰'; });
+
+    const bindings = [];
+    function bind(id, key, type, action) {
+        const el = document.getElementById(id);
+        if(!el) return; 
+        bindings.push({ id, key, type, el });
+        const handler = (e) => {
+            let val = e.target.value;
+            if(type === 'float') val = parseFloat(val);
+            if(type === 'int') val = parseInt(val);
+            if(type === 'checkbox') val = e.target.checked;
+            if(type === 'color') val = parseInt(val.replace('#', '0x'), 16);
+            STATE[key] = val;
+            if(action === 'rebuild') generateTree();
+            updateVisuals();
+        };
+        if(action === 'rebuild') el.addEventListener('change', handler); else el.addEventListener('input', handler);
+    }
+
+    bind('inp-self-lit', 'selfIlluminated', 'checkbox', 'instant');
+    bind('inp-shape', 'shape', 'string', 'rebuild');
+    bind('inp-height', 'treeHeight', 'float', 'rebuild');
+    bind('inp-radius', 'baseRadius', 'float', 'rebuild');
+    bind('inp-show-branches', 'showBranches', 'checkbox', 'rebuild');
+    bind('inp-branch-total', 'totalBranches', 'int', 'rebuild');
+    bind('inp-branch-chaos', 'branchChaos', 'float', 'rebuild');
+    bind('inp-branch-arch', 'branchArch', 'float', 'rebuild');
+    bind('inp-tinsel-count', 'tinselCount', 'int', 'rebuild');
+    bind('inp-tinsel-width', 'tinselWidth', 'float', 'rebuild');
+    bind('inp-tinsel-len', 'tinselLength', 'float', 'rebuild');
+    bind('inp-tinsel-fluff', 'tinselFluff', 'float', 'rebuild');
+    bind('inp-tinsel-metal', 'tinselMetalness', 'float', 'instant');
+    bind('inp-tinsel-rough', 'tinselRoughness', 'float', 'instant');
+    bind('inp-tinsel-color', 'tinselColor', 'color', 'rebuild'); 
+    bind('inp-ornament-type', 'ornamentType', 'string', 'rebuild');
+    bind('inp-sequin-count', 'sequinCount', 'int', 'rebuild');
+    bind('inp-sequin-size', 'sequinSize', 'float', 'rebuild');
+    bind('inp-palette', 'palette', 'string', 'rebuild');
+    bind('inp-speed', 'rotationSpeed', 'float', 'instant');
+    bind('inp-disco', 'discoLights', 'checkbox', 'instant');
+    bind('inp-disco-int', 'discoIntensity', 'float', 'instant');
+    bind('inp-disco-speed', 'discoSpeed', 'float', 'instant');
+    bind('inp-light-palette', 'lightPalette', 'string', 'instant');
+    bind('inp-ambient', 'ambientIntensity', 'float', 'instant');
+    bind('inp-bg-color', 'bgColor', 'color', 'instant');
+
+    function getRandomVal(min, max, isInt) { const val = Math.random() * (max - min) + min; return isInt ? Math.round(val) : val; }
+
+    function generateRandomPalette(count) {
+        const colors = [];
+        // Use HSL for vibrant colors
+        const startHue = Math.random();
+        for(let i=0; i<count; i++) {
+            const h = (startHue + (i/count) + Math.random()*0.1) % 1.0;
+            const s = 0.5 + Math.random() * 0.5;
+            const l = 0.4 + Math.random() * 0.4;
+            const c = new THREE.Color().setHSL(h, s, l);
+            colors.push(c.getHex());
+        }
+        return colors;
+    }
+
+    function randomizeAll() {
+        // --- 1. Tinsel Color (Open Ended) ---
+        // Completely random HSL color, favoring visibility
+        const randH = Math.random();
+        const randS = 0.6 + Math.random() * 0.4; // Vibrant
+        const randL = 0.3 + Math.random() * 0.5; // Visible
+        const randomTinselColor = new THREE.Color().setHSL(randH, randS, randL);
+        STATE.tinselColor = randomTinselColor.getHex();
+
+        // --- 2. Palettes (Open Ended) ---
+        // Generate entirely new palettes every time
+        PALETTES.custom_rand = generateRandomPalette(6);
+        STATE.palette = 'custom_rand';
+
+        LIGHT_PALETTES.custom_rand = generateRandomPalette(5);
+        STATE.lightPalette = 'custom_rand';
+
+        // --- 3. Other Params ---
+        bindings.forEach(b => {
+            // Skip the keys we just handled manually
+            if (b.key === 'tinselColor' || b.key === 'palette' || b.key === 'lightPalette') return;
+
+            if(b.el.type === 'range') {
+                const min = parseFloat(b.el.min), max = parseFloat(b.el.max), step = parseFloat(b.el.step) || 0.1;
+                const isInt = step >= 1 && (min % 1 === 0);
+                let val = getRandomVal(min, max, isInt);
+                
+                // Constraints for sanity
+                if(b.key === 'lightIntensity') val = getRandomVal(0.5, 1.2, false);
+                if(b.key === 'ambientIntensity') val = getRandomVal(0.0, 0.3, false); 
+                if(b.key === 'discoIntensity') val = getRandomVal(2.0, 5.0, false);
+                if(b.key === 'tinselCount') val = getRandomVal(40000, 80000, true);
+                if(b.key === 'sequinSize') val = Math.min(val, 0.6); 
+                
+                STATE[b.key] = val;
+            } else if (b.el.type === 'checkbox' && b.key !== 'selfIlluminated' && b.key !== 'showBranches') { 
+                STATE[b.key] = Math.random() > 0.5; 
+            }
+            else if (b.el.tagName === 'SELECT') {
+                if(b.key === 'shape') { 
+                    const safeShapes = ['conical', 'parabolic']; 
+                    STATE[b.key] = safeShapes[Math.floor(Math.random() * safeShapes.length)]; 
+                }
+                else { 
+                    const opts = b.el.options; 
+                    const r = Math.floor(Math.random() * opts.length); 
+                    STATE[b.key] = opts[r].value; 
+                }
+            }
+        });
+
+        // Ensure physics/geometry sanity
+        if (STATE.treeHeight < 10 && STATE.baseRadius > 6) { STATE.baseRadius = STATE.treeHeight * 0.5; }
+        
+        syncUI(); 
+        generateTree(); 
+        updateVisuals();
+    }
+
+    function syncUI() { bindings.forEach(b => { if(b.type === 'checkbox') b.el.checked = STATE[b.key]; else if(b.type === 'color') b.el.value = '#' + new THREE.Color(STATE[b.key]).getHexString(); else b.el.value = STATE[b.key]; }); }
+
+    // --- Click & Fade Interaction ---
+    let startX = 0, startY = 0, startTime = 0;
+    
+    // Listen on DOM element to catch clicks on canvas
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+        startX = e.clientX;
+        startY = e.clientY;
+        startTime = Date.now();
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+        // Only trigger if not dragged and short duration (click vs orbit)
+        const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+        const duration = Date.now() - startTime;
+        
+        // If it was a click (not a drag) and not on a menu
+        if (dist < 5 && duration < 300) {
+            triggerTransition();
+        }
+    });
+
+    function triggerTransition() {
+        const curtain = document.getElementById('curtain');
+        // 1. Fade Out
+        curtain.style.opacity = 1;
+        
+        // 2. Wait for fade, randomize, Fade In
+        setTimeout(() => {
+            randomizeAll();
+            setTimeout(() => {
+                curtain.style.opacity = 0;
+            }, 100); // Short delay to ensure frame rendered
+        }, 400); // Matches CSS transition time
+    }
+
+
+    document.getElementById('btn-random-all').addEventListener('click', () => {
+        triggerTransition();
+    });
+    document.getElementById('btn-regenerate').addEventListener('click', generateTree);
+
+    const clock = new THREE.Clock();
+    const tempColor = new THREE.Color();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const time = clock.getElapsedTime();
+        treeGroup.rotation.y += STATE.rotationSpeed * 0.01;
+
+        if(STATE.discoLights && !STATE.selfIlluminated) {
+            realLights.forEach((pl, i) => {
+                const offset = (i / 6) * Math.PI * 2;
+                const speed = STATE.discoSpeed * 0.5 * ((i % 2 === 0) ? 1 : -0.8); 
+                pl.position.x = Math.sin(time * speed + offset) * 15;
+                pl.position.z = Math.cos(time * speed + offset) * 15;
+                pl.position.y = 6 + Math.sin(time * speed * 1.5 + offset) * 5;
+            });
+        }
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+    
+    // Initialize
+    updateVisuals(); 
+    randomizeAll(); // Start with a random tree
+    animate();
+</script>
+</body>
+</html>
